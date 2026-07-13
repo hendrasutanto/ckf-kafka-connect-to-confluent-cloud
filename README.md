@@ -1,62 +1,101 @@
-# CFK Managed Connect Cluster with Confluent Hub Connector, Connected to Confluent Cloud
+# Kafka Connect to Confluent Cloud
 
-This scenario deploys a self-managed Kafka Connect cluster via Confluent for
-Kubernetes (CFK), running the Debezium MySQL CDC Source connector, and
-connects it to a Kafka cluster and Schema Registry in Confluent Cloud.
+In this example, you'll set up a self-managed Kafka Connect cluster connected to Confluent Cloud, and install and manage the MySQL source connector plugin through the declarative `Connector` CRD.
+Note: Here you'll only deploy Kafka Connect
 
-## Prerequisites
+## Set up Pre-requisites
 
-- A Kubernetes cluster with CFK installed (this example was validated
-  against CFK 3.3.0 / Confluent Platform 8.2.0)
-- A Confluent Cloud environment with a Kafka cluster and Schema Registry
-  enabled
-- A Confluent Cloud API key/secret for Kafka, and a separate API
-  key/secret for Schema Registry
-- A reachable MySQL instance with row-based binary logging enabled
-  (`log_bin=ON`, `binlog_format=ROW`)
+Set the tutorial directory for this tutorial under the directory you downloaded the tutorial files:
 
-## Setup
+```
+export TUTORIAL_HOME=<Tutorial directory>/ccloud/connect
+```
 
-1. Set your tutorial directory:
+Create namespace
 
-   ```
-   export TUTORIAL_HOME=<path-to-this-directory>
-   ```
+```
+kubectl create ns confluent
+```
 
-2. Fill in `ccloud-credentials.txt` and `ccloud-sr-credentials.txt` with
-   your Confluent Cloud API key/secret pairs.
+## Deploy Confluent for Kubernetes
 
-3. Create the Kubernetes secrets:
+This workflow scenario assumes you are using the namespace `confluent`.
 
-   ```
-   kubectl create secret generic ccloud-credentials \
-     --from-file=plain.txt=$TUTORIAL_HOME/ccloud-credentials.txt \
-     --namespace confluent
+Set up the Helm Chart:
 
-   kubectl create secret generic ccloud-sr-credentials \
-     --from-file=basic.txt=$TUTORIAL_HOME/ccloud-sr-credentials.txt \
-     --namespace confluent
-   ```
+```
+helm repo add confluentinc https://packages.confluent.io/helm
+```
 
-4. Edit `kafka-connect.yaml` and replace `<replace-with-ccloud-bootstrap>`
-   and `<replace-with-ccloud-sr-url>` with your Confluent Cloud endpoints.
+Install Confluent For Kubernetes using Helm:
 
-5. Apply the Connect CR:
+```
+helm upgrade --install operator confluentinc/confluent-for-kubernetes -n confluent
+```
+ 
+Check that the Confluent For Kubernetes pod comes up and is running:
 
-   ```
-   kubectl apply -f $TUTORIAL_HOME/kafka-connect.yaml --namespace confluent
-   ```
+```
+kubectl get pods -n confluent
+```
 
-6. Confirm the Connect pod comes up and the connector plugin installed
-   successfully:
+## Create Kubernetes Secrets for Confluent Cloud API Key and Confluent Cloud Schema Registry API Key
 
-   ```
-   kubectl get pods --namespace confluent
-   kubectl logs -f connect-0 -c config-init-container --namespace confluent
-   ```
+```
+kubectl create secret generic ccloud-credentials --from-file=plain.txt=ccloud-credentials.txt
+```
 
-## Next steps
+```
+kubectl create secret generic ccloud-sr-credentials --from-file=basic.txt=ccloud-sr-credentials.txt
+```
 
-Once Connect is running, deploy a `Connector` custom resource for the
-Debezium MySQL source connector to start streaming change events into
-your Confluent Cloud cluster.
+## Deploy self-managed Kafka Connect connecting to Confluent Cloud
+
+```
+kubectl apply -f $TUTORIAL_HOME/kafka-connect.yaml
+```
+
+## Port Forward REST endpoint for Kafka Connect to submit Connector config
+
+```
+kubectl port-forward connect-0 8083
+```
+
+## Create Connector
+
+Create MySQL source connector 
+```
+curl -X PUT \
+-H "Content-Type: application/json" \
+--data '{
+	"connector.class":"io.debezium.connector.mysql.MySqlConnector",
+	"tasks.max":"1",
+	"database.hostname":"<mysql_host>",
+	"database.port":"3306",
+	"database.user":"<mysql_user>",
+	"database.password":"<mysql_password>",
+	"database.server.id":"<unique_numeric_id>",
+	"database.include.list":"<database_to_import>",
+	"topic.prefix":"ccloud-",
+	"schema.history.internal.kafka.topic":"schema-changes.mysql",
+	"schema.history.internal.kafka.bootstrap.servers":"<ccloud_bootstrap_endpoint>",
+	"key.converter.basic.auth.credentials.source": "USER_INFO",
+	"key.converter.schema.registry.basic.auth.user.info":"<ccloud-sr-api-key>:<ccloud-sr-api-secret>",
+	"key.converter.schema.registry.url": "<ccloud-sr-endpoint>",
+	"value.converter.basic.auth.credentials.source": "USER_INFO",
+	"value.converter.schema.registry.basic.auth.user.info":"<ccloud-sr-api-key>:<ccloud-sr-api-secret>",
+	"value.converter.schema.registry.url": "<ccloud-sr-endpoint>"
+}' \
+http://localhost:8083/connectors/mysql-source-ccloud/config | jq .
+```
+
+## Validation
+Check if connector is running
+```
+curl -X GET http://localhost:8083/connectors/mysql-source-ccloud
+```
+
+## Tear down
+```
+kubectl delete -f $TUTORIAL_HOME/kafka-connect.yaml
+```
