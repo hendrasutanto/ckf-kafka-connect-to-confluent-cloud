@@ -63,7 +63,13 @@ kubectl port-forward connect-0 8083
 
 ## Create Connector
 
-Create MySQL source connector 
+Create MySQL source connector
+
+Note: Because Kafka lives in Confluent Cloud (not a local broker), the connector's internal
+schema history topic also needs its own SASL_SSL credentials for its producer and consumer.
+Replace `<ccloud-api-key>` and `<ccloud-api-secret>` with the same Confluent Cloud Kafka API
+key/secret used in `ccloud-credentials.txt`.
+
 ```
 curl -X PUT \
 -H "Content-Type: application/json" \
@@ -79,6 +85,12 @@ curl -X PUT \
 	"topic.prefix":"ccloud-",
 	"schema.history.internal.kafka.topic":"schema-changes.mysql",
 	"schema.history.internal.kafka.bootstrap.servers":"<ccloud_bootstrap_endpoint>",
+	"schema.history.internal.producer.security.protocol":"SASL_SSL",
+	"schema.history.internal.producer.sasl.mechanism":"PLAIN",
+	"schema.history.internal.producer.sasl.jaas.config":"org.apache.kafka.common.security.plain.PlainLoginModule required username=\"<ccloud-api-key>\" password=\"<ccloud-api-secret>\";",
+	"schema.history.internal.consumer.security.protocol":"SASL_SSL",
+	"schema.history.internal.consumer.sasl.mechanism":"PLAIN",
+	"schema.history.internal.consumer.sasl.jaas.config":"org.apache.kafka.common.security.plain.PlainLoginModule required username=\"<ccloud-api-key>\" password=\"<ccloud-api-secret>\";",
 	"key.converter.basic.auth.credentials.source": "USER_INFO",
 	"key.converter.schema.registry.basic.auth.user.info":"<ccloud-sr-api-key>:<ccloud-sr-api-secret>",
 	"key.converter.schema.registry.url": "<ccloud-sr-endpoint>",
