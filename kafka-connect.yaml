@@ -1,0 +1,35 @@
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: Connect
+metadata:
+  name: connect
+spec:
+  replicas: 1
+  image:
+    application: confluentinc/cp-server-connect:8.2.0
+    init: confluentinc/confluent-init-container:3.3.0  # match to your actual CFK operator version
+  build:
+    type: onDemand
+    onDemand:
+      plugins:
+        locationType: confluentHub
+        confluentHub:
+          - name: debezium-connector-mysql
+            owner: debezium
+            version: 3.1.2
+  dependencies:
+    kafka:
+      bootstrapEndpoint: <replace-with-ccloud-bootstrap>
+      authentication:
+        type: plain
+        jaasConfig:
+          secretRef: ccloud-credentials
+      tls:
+        enabled: true
+        ignoreTrustStoreConfig: true
+    schemaRegistry:
+      url: <replace-with-ccloud-sr-url>
+      authentication:
+        type: basic
+        basic:
+          secretRef: ccloud-sr-credentials
