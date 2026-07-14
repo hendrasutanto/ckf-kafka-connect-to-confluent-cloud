@@ -14,7 +14,7 @@ spec:
         cpu: "4"
         memory: "16Gi"
   image:
-    application: confluentinc/cp-server-connect:8.2.0
+    application: confluentinc/cp-server-connect:8.2.2
     init: confluentinc/confluent-init-container:3.3.0  # match to your actual CFK operator version
   build:
     type: onDemand
