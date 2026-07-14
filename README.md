@@ -42,17 +42,17 @@ kubectl get pods -n confluent
 ## Create Kubernetes Secrets for Confluent Cloud API Key and Confluent Cloud Schema Registry API Key
 
 ```
-kubectl create secret generic ccloud-credentials --from-file=plain.txt=ccloud-credentials.txt
+kubectl create secret generic ccloud-credentials --from-file=plain.txt=ccloud-credentials.txt -n confluent
 ```
 
 ```
-kubectl create secret generic ccloud-sr-credentials --from-file=basic.txt=ccloud-sr-credentials.txt
+kubectl create secret generic ccloud-sr-credentials --from-file=basic.txt=ccloud-sr-credentials.txt -n confluent
 ```
 
 ## Deploy self-managed Kafka Connect connecting to Confluent Cloud
 
 ```
-kubectl apply -f $TUTORIAL_HOME/kafka-connect.yaml
+kubectl apply -f $TUTORIAL_HOME/kafka-connect.yaml -n confluent
 ```
 
 ## Port Forward REST endpoint for Kafka Connect to submit Connector config
